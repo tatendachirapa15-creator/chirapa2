@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QR School Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+<header class="topbar">
+  <div><p class="eyebrow">SCHOOL MANAGEMENT</p><h1>QR Attendance System</h1></div>
+  <div class="active-term">Active term<br><strong>{{ term.academic_year }} · Term {{ term.term_number }}</strong></div>
+</header>
+<main class="container">
+  <section class="stats">
+    <article class="stat"><span>Active people</span><strong>{{ people_count }}</strong></article>
+    <article class="stat"><span>Entrance sign-ins today</span><strong>{{ entrance_count }}</strong></article>
+    <article class="stat"><span>Late arrivals today</span><strong>{{ late_count }}</strong></article>
+    <article class="stat"><span>Late rule</span><strong>After 07:15</strong><small>Start 07:00 + 15-minute grace</small></article>
+  </section>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}<section>{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</section>{% endif %}
+  {% endwith %}
+
+  <section class="panel">
+    <div class="section-heading"><div><p class="eyebrow">LIVE SCANNING</p><h2>Scan an ID card</h2></div><span class="pill">Phone + computer</span></div>
+    <div class="scan-grid">
+      <div>
+        <label for="scan-type">Scan purpose</label>
+        <select id="scan-type">
+          <option value="entrance_in">School entrance — sign in</option>
+          <option value="entrance_out">School entrance — sign out</option>
+          <option value="classroom">Classroom attendance</option>
+        </select>
+        <label for="class-name">Class (classroom scans)</label>
+        <input id="class-name" placeholder="e.g. Form 1A">
+        <label for="subject">Subject (optional)</label>
+        <input id="subject" placeholder="e.g. Mathematics">
+        <label for="scanner-name">Staff member scanning (optional)</label>
+        <input id="scanner-name" placeholder="Teacher or administrator name">
+        <label for="person-code">ID code (or scan QR)</label>
+        <div class="inline-input"><input id="person-code" placeholder="e.g. STU001" autocomplete="off"><button id="submit-scan">Record scan</button></div>
+        <p class="hint">A QR card should contain the person's unique ID code, such as STU001 or TCH001.</p>
+        <div id="scan-result" class="result" aria-live="polite">Ready to scan.</div>
+      </div>
+      <div>
+        <div id="reader"></div>
+        <div class="button-row"><button id="start-camera" class="secondary">Start camera</button><button id="stop-camera" class="secondary">Stop camera</button></div>
+        <p class="hint">Camera access usually requires HTTPS or localhost. If the camera is unavailable, type the ID code instead.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel">
+      <p class="eyebrow">DIRECTORY</p><h2>Add student or teacher</h2>
+      <form method="post" action="{{ url_for('add_person') }}" class="form-grid">
+        <div><label>ID code</label><input name="person_code" required placeholder="STU003"></div>
+        <div><label>Full name</label><input name="full_name" required placeholder="Full name"></div>
+        <div><label>Role</label><select name="role" id="person-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></div>
+        <div><label>Class (students)</label><input name="class_name" placeholder="Form 2B"></div>
+        <div class="wide"><label>Department (teachers)</label><input name="department" placeholder="Science"></div>
+        <div class="wide"><button type="submit">Add person</button></div>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Class / department</th></tr></thead><tbody>
+      {% for p in people %}<tr><td>{{ p.person_code }}</td><td>{{ p.full_name }}</td><td>{{ p.role|title }}</td><td>{{ p.class_name or p.department or "—" }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+    <section class="panel">
+      <p class="eyebrow">ACADEMIC CALENDAR</p><h2>Manage terms</h2>
+      <form method="post" action="{{ url_for('add_term') }}" class="form-grid">
+        <div><label>Academic year</label><input name="academic_year" required placeholder="2027"></div>
+        <div><label>Term number</label><select name="term_number"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option></select></div>
+        <div><label>Start date</label><input type="date" name="start_date"></div>
+        <div><label>End date</label><input type="date" name="end_date"></div>
+        <div class="wide checkbox-line"><input type="checkbox" name="activate" value="yes" id="activate"><label for="activate">Make this the active term</label></div>
+        <div class="wide"><button type="submit">Create term</button></div>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>Year / term</th><th>Dates</th><th>Status</th><th></th></tr></thead><tbody>
+      {% for t in terms %}<tr><td>{{ t.academic_year }} / Term {{ t.term_number }}</td><td>{{ t.start_date or "—" }} – {{ t.end_date or "—" }}</td><td>{% if t.active %}<span class="pill green">Active</span>{% else %}Inactive{% endif %}</td><td>{% if not t.active %}<form method="post" action="{{ url_for('activate_term', term_id=t.id) }}"><button class="small secondary" type="submit">Activate</button></form>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="section-heading"><div><p class="eyebrow">LATEST EVENTS</p><h2>Recent attendance scans</h2></div><a class="button-link" href="{{ url_for('reports') }}">Open reports →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>Date/time</th><th>ID</th><th>Name</th><th>Role</th><th>Scan</th><th>Status</th><th>Class / subject</th></tr></thead><tbody>
+    {% for s in recent %}<tr><td>{{ s.scanned_at.replace("T", " ") }}</td><td>{{ s.person_code }}</td><td>{{ s.full_name }}</td><td>{{ s.role|title }}</td><td>{{ s.scan_type.replace("_", " ")|title }}</td><td><span class="status {{ s.status }}">{{ s.status.replace("_", " ")|title }}</span></td><td>{{ s.class_name or "" }}{% if s.subject %} · {{ s.subject }}{% endif %}</td></tr>{% else %}<tr><td colspan="7">No scans recorded for this term yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <footer>Prototype for development and testing. Set up user authentication, permissions, backups and privacy controls before using real school records.</footer>
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

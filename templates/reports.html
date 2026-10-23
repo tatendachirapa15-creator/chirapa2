@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Attendance Reports</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+<header class="topbar"><div><p class="eyebrow">SCHOOL MANAGEMENT</p><h1>Attendance reports</h1></div><a class="button-link" href="{{ url_for('index') }}">← Dashboard</a></header>
+<main class="container">
+<section class="panel">
+  <div class="section-heading"><div><p class="eyebrow">TERM REPORT</p><h2>{{ term.academic_year }} · Term {{ term.term_number }}</h2></div><button onclick="window.print()" class="secondary">Print report</button></div>
+  <form method="get" class="filter-row"><label for="term_id">Select term</label><select id="term_id" name="term_id">{% for t in terms %}<option value="{{ t.id }}" {% if t.id == term.id %}selected{% endif %}>{{ t.academic_year }} · Term {{ t.term_number }}</option>{% endfor %}</select><button>View</button></form>
+  <p class="hint">Rows are grouped by person and date. A person with no scans will not appear here; use the full class list to finalize absences.</p>
+  <div class="table-wrap"><table><thead><tr><th>Date</th><th>ID</th><th>Name</th><th>Role</th><th>Class</th><th>Sign-in</th><th>Sign-out</th><th>Late entries</th><th>Class scans</th></tr></thead><tbody>
+  {% for r in rows %}<tr><td>{{ r.attendance_date }}</td><td>{{ r.person_code }}</td><td>{{ r.full_name }}</td><td>{{ r.role|title }}</td><td>{{ r.class_name or "—" }}</td><td>{{ r.sign_in.replace("T"," ") if r.sign_in else "—" }}</td><td>{{ r.sign_out.replace("T"," ") if r.sign_out else "—" }}</td><td>{{ r.late_count or 0 }}</td><td>{{ r.classroom_count or 0 }}</td></tr>{% else %}<tr><td colspan="9">No attendance events recorded for this term.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+</main>
+</body>
+</html>
